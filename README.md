@@ -1,2 +1,4 @@
-# ansible-role-kubernetes-calico
-Install calico for Kubernetes networking
+ansible-role-kubernetes-calico-node
+===================================
+
+Not ready yet ;-)

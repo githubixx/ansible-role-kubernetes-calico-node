@@ -1,0 +1,42 @@
+{% macro etcd_hosts() %}
+{%- for host in groups['k8s_etcd'] -%}
+https://{{hostvars[host]['ansible_' + k8s_interface].ipv4.address}}:{{etcd_client_port}}{% if not loop.last %},{% endif %}
+{%- endfor -%}
+{% endmacro %}
+[Unit]
+Description=calico node
+After=docker.service
+Requires=docker.service
+
+[Service]
+User=root
+PermissionsStartOnly=true
+ExecStartPre=-{{docker_bin_dir}}/docker rm -f calico-node
+ExecStart={{docker_bin_dir}}/docker run --net=host --privileged --name=calico-node \
+  -e NODENAME={{hostvars[inventory_hostname]['ansible_' + k8s_interface].ipv4.address}} \
+  -e IP={{hostvars[inventory_hostname]['ansible_' + k8s_interface].ipv4.address}} \
+  -e IP_AUTODETECTION_METHOD=interface={{k8s_interface}}.* \
+  -e FELIX_FELIXHOSTNAME=IP={{hostvars[inventory_hostname]['ansible_' + k8s_interface].ipv4.address}} \
+  -e CALICO_NETWORKING_BACKEND=none \
+  -e NO_DEFAULT_POOLS=true \
+  -e CALICO_IPV4POOL_IPIP=always \
+  -e ETCD_ENDPOINTS={{etcd_hosts()}} \
+  -e ETCD_CA_CERT_FILE={{k8s_conf_dir}}/ca-etcd.pem \
+  -e ETCD_CERT_FILE={{k8s_conf_dir}}/cert-etcd.pem \
+  -e ETCD_KEY_FILE={{k8s_conf_dir}}/cert-etcd-key.pem\
+  -e AS= \
+  -e IP6= \
+  -v /var/run/calico:/var/run/calico \
+  -v /lib/modules:/lib/modules \
+  -v /run/docker/plugins:/run/docker/plugins \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/log/calico:/var/log/calico \
+  -v {{k8s_conf_dir}}:{{k8s_conf_dir}} \
+  -v /etc/resolv.conf:/etc/resolv.conf:ro \
+  quay.io/calico/node:{{calico_node_version}}
+ExecStop={{docker_bin_dir}}/docker rm -f calico-node
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

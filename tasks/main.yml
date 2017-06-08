@@ -1,0 +1,132 @@
+---
+- name: Update repositories cache and install python-pip package
+  apt:
+    name: python-pip
+    update_cache: yes
+    state: present
+  tags:
+    - k8s-calico
+
+- name: Install ebtables
+  apt:
+    state: installed
+    pkg: ebtables
+  tags:
+    - k8s-calico
+
+- name: Install ethtool
+  apt:
+    state: installed
+    pkg: ethtool
+  tags:
+    - k8s-calico
+
+- name: Install ipset
+  apt:
+    state: installed
+    pkg: ipset
+  tags:
+    - k8s-calico
+
+- name: Install docker-py PIP
+  pip:
+    name: docker-py
+    state: present
+  tags:
+    - k8s-calico
+
+- name: Ensure calico/node container present
+  docker_image:
+    name: quay.io/calico/node
+    tag: "{{calico_node_version}}"
+  tags:
+    - k8s-calico
+
+- name: Install systemd service for calico/node
+  template:
+    src: etc/systemd/system/calico-node.service.j2
+    dest: /etc/systemd/system/calico-node.service
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload systemd
+  tags:
+    - k8s-calico
+
+- name: Ensure CNI plugins directory
+  file:
+    path: "{{k8s_cni_dir}}/bin"
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+  tags:
+    - k8s-calico
+
+- name: Downloading official calico binaries for CNI
+  get_url:
+    url: https://github.com/projectcalico/calico-cni/releases/download/{{calico_plugins_version}}/{{item}}
+    dest: "{{k8s_cni_dir}}/bin/{{item}}"
+    mode: 0750
+  with_items:
+    - "{{calico_plugins}}"
+  tags:
+    - k8s-calico
+
+- name: Ensure download directory for calico files
+  file:
+    path: "{{calico_download_dir}}"
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+  tags:
+    - k8s-calico
+
+- name: Downloading CNI loopback plugin
+  get_url:
+    url: https://github.com/containernetworking/cni/releases/download/{{loopback_version}}/cni-{{loopback_version}}.tgz
+    dest: "{{calico_download_dir}}/cni-{{loopback_version}}.tgz"
+    mode: 0640
+  tags:
+    - k8s-calico
+
+- name: Unzip CNI loopback plugin
+  unarchive:
+    src: "{{calico_download_dir}}/cni-{{loopback_version}}.tgz"
+    dest: "{{k8s_cni_dir}}/bin"
+    remote_src: yes
+    creates: "{{k8s_cni_dir}}/bin/loopback"
+  tags:
+    - k8s-calico
+
+- name: Ensure CNI config directory
+  file:
+    path: "{{k8s_cni_conf_dir}}"
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+  tags:
+    - k8s-calico
+
+- name: Install Calico CNI config
+  template:
+    src: etc/cni/net.d/cni-calico.conf.j2
+    dest: "{{k8s_cni_conf_dir}}/{{calico_cni_conf_file}}.conf"
+    owner: root
+    group: root
+    mode: 0644
+  tags:
+    - k8s-calico
+
+- meta: flush_handlers
+
+- name: Enable and start Calico
+  service:
+    name: calico-node
+    enabled: yes
+    state: started
+  tags:
+    - k8s-calico

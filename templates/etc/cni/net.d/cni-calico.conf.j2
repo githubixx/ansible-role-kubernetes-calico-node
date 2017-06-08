@@ -1,0 +1,26 @@
+{% macro etcd_hosts() %}
+{%- for host in groups['k8s_etcd'] -%}
+https://{{hostvars[host]['ansible_' + k8s_interface].ipv4.address}}:{{etcd_client_port}}{% if not loop.last %},{% endif %}
+{%- endfor -%}
+{% endmacro %}
+{% set k8s_api_server = groups['k8s_controller']|first %}
+{% set k8s_api_server_ip = hostvars[k8s_api_server]['ansible_' + k8s_interface].ipv4.address %}
+{
+  "name": "calico",
+  "type": "flannel",
+  "delegate": {
+    "type": "calico",
+    "etcd_endpoints": "{{etcd_hosts()}}",
+    "etcd_key_file": "{{k8s_conf_dir}}/cert-etcd-key.pem"",
+    "etcd_cert_file": "{{k8s_conf_dir}}/cert-etcd.pem",
+    "etcd_ca_cert_file": "{{k8s_conf_dir}}/ca-etcd.pem",
+    "log_level": "info",
+    "policy": {
+      "type": "k8s",
+      "k8s_api_root": "http://{{k8s_api_server_ip}}:8080",
+    },
+    "kubernetes": {
+      "kubeconfig": "{{k8s_kubelet_conf_dir}}/kubeconfig"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+---
+k8s_interface: "tap0"
+k8s_conf_dir: "/var/lib/kubernetes"
+k8s_cni_bin_dir: "/opt/cni/bin"
+k8s_cni_conf_dir: "/etc/cni/net.d"
+k8s_kubelet_conf_dir: "/var/lib/kubelet"
+
+etcd_client_port: 2379
+
+docker-py_version: 1.10.6
+docker_bin_dir: /usr/local/bin
+
+calico_download_dir: /opt/calico
+
+calico_node_version: v1.2.1
+calico_cni_name: calico
+calico_cni_conf_file: 11-calico
+calico_plugins_version: v1.8.3
+calico_plugins:
+  - calico
+
+loopback_version: v0.5.2
